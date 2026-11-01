@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { usePageInfo } from './usePageInfo'
 import { askAllFrames, getActiveTab } from '../shared/tabs'
 import type { PageKind } from '../shared/types'
+import { Settings } from './Settings'
+import { Transcription } from './Transcription'
 
 const KIND_LABEL: Record<PageKind, string> = {
   lesson: 'Aula com vídeo',
@@ -35,8 +37,11 @@ export function App() {
 
       {state.status === 'unsupported' && (
         <section className="card">
-          <p>Esta página não é de uma plataforma suportada.</p>
-          <p className="muted">Abra uma disciplina na plataforma de estudo.</p>
+          <p>Não reconheci esta página.</p>
+          <p className="muted">
+            Abra uma aula na plataforma de estudo. Se ela já estiver aberta, recarregue a página (F5) e clique em
+            Atualizar.
+          </p>
         </section>
       )}
 
@@ -65,9 +70,20 @@ export function App() {
             ))}
           </section>
 
-          <button onClick={inspect}>{copied ? 'Copiado!' : 'Inspecionar página (copiar estrutura)'}</button>
+          <button className="secondary" onClick={inspect}>{copied ? 'Copiado!' : 'Inspecionar página (copiar estrutura)'}</button>
         </>
       )}
+
+      {/* Sempre visível: mostra a gravação em andamento mesmo se você trocar de página */}
+      <Transcription
+        lesson={
+          state.status === 'ready' && state.info.kind === 'lesson'
+            ? { url: state.info.url, title: state.info.title }
+            : null
+        }
+      />
+
+      <Settings />
     </main>
   )
 }

@@ -4,12 +4,20 @@ import { findVideos } from './dom'
 
 /**
  * Plataforma Platos (LMS da faculdade).
- * Ex.: https://infoprod.platosedu.io/v2/lms/aluno/disciplina/14070701
+ *   Disciplina: /v2/lms/aluno/disciplina/{disciplinaId}
+ *   Aula:       /v2/lms/aluno/disciplina/conteudo/{disciplinaId}/{x}/{y}
  *
- * Os seletores abaixo são iniciais: serão refinados com o "Inspecionar página"
- * do painel, rodando numa aula real.
+ * O vídeo fica num iframe do Mediastream (mdstrm.com). A aba "Avaliação"
+ * fica na mesma URL da aula e mostra o botão "Iniciar avaliação".
  */
-const QUIZ_WORDS = /question[aá]rio|avalia[cç][aã]o|atividade|quiz|exerc[ií]cio/i
+const buttonTexts = (doc: Document) =>
+  [...doc.querySelectorAll('button, a[role="button"], [role="tab"]')].map((b) => b.textContent?.trim() ?? '')
+
+/** Item da lista "Conteúdo do Curso" marcado como atual (ajustar com o inspetor). */
+function activeLessonTitle(doc: Document): string | undefined {
+  const el = doc.querySelector('[aria-current="true"], [aria-current="page"], [aria-selected="true"]')
+  return el?.textContent?.replace(/\s+/g, ' ').trim() || undefined
+}
 
 export const platosAdapter: PlatformAdapter = {
   id: 'platos',
@@ -19,19 +27,20 @@ export const platosAdapter: PlatformAdapter = {
 
   detect(doc, url) {
     const videos = findVideos(doc)
-    const courseId = url.pathname.match(/disciplina\/(\d+)/)?.[1]
-    const heading = doc.querySelector('h1, h2')?.textContent?.trim()
+    const courseId = url.pathname.match(/disciplina\/(?:conteudo\/)?(\d+)/)?.[1]
+    const isContent = url.pathname.includes('/disciplina/conteudo/')
+    const isQuiz = buttonTexts(doc).some((t) => /iniciar avalia[cç][aã]o/i.test(t))
 
     let kind: PageKind = 'unknown'
-    if (videos.length > 0) kind = 'lesson'
-    else if (QUIZ_WORDS.test(heading ?? '') || doc.querySelector('input[type="radio"]')) kind = 'quiz'
-    else if (courseId) kind = 'course'
+    if (isQuiz) kind = 'quiz'
+    else if (videos.length > 0) kind = 'lesson'
+    else if (courseId && !isContent) kind = 'course'
 
     return {
       platform: this.name,
       kind,
       url: url.href,
-      title: heading || doc.title,
+      title: activeLessonTitle(doc) ?? doc.title,
       courseId,
       videos,
     }

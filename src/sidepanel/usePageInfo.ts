@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { askAllFrames, getActiveTab } from '../shared/tabs'
+import { askAllFrames, getActiveTab, reinjectContentScripts } from '../shared/tabs'
 import type { FrameReport, PageInfo } from '../shared/types'
 
 type State =
@@ -22,7 +22,12 @@ export function usePageInfo() {
   const refresh = useCallback(async () => {
     const tab = await getActiveTab()
     if (!tab?.id) return setState({ status: 'unsupported' })
-    const frames = await askAllFrames(tab.id, { type: 'GET_PAGE_INFO' })
+    let frames = await askAllFrames(tab.id, { type: 'GET_PAGE_INFO' })
+    if (!frames.length) {
+      // Pode ser só a extensão recém-atualizada: reinjeta os scripts e tenta de novo.
+      await reinjectContentScripts(tab.id)
+      frames = await askAllFrames(tab.id, { type: 'GET_PAGE_INFO' })
+    }
     if (!frames.length) return setState({ status: 'unsupported' })
     setState({ status: 'ready', info: merge(frames), frames })
   }, [])

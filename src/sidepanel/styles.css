@@ -45,4 +45,34 @@ button {
   font: inherit; cursor: pointer; border: none; border-radius: 8px;
   padding: 10px 12px; background: var(--accent); color: #fff;
 }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 button.ghost { background: transparent; color: var(--accent); padding: 4px 8px; }
+
+h3 { font-size: 14px; margin: 0; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; align-items: center; justify-content: space-between; }
+.small { font-size: 12px; margin: 0; }
+.error { color: #c53030; margin: 0; }
+progress { width: 100%; }
+.transcript {
+  max-height: 320px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
+  font-size: 13px; padding: 8px; border-radius: 6px; background: var(--bg);
+}
+
+summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 8px; }
+label { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; font-size: 13px; }
+input, select {
+  font: inherit; padding: 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+
+.status { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+.status.recording { border-color: #d93025; background: rgba(217, 48, 37, 0.06); }
+.status.transcribing { border-color: var(--warn); background: rgba(183, 121, 31, 0.08); }
+.dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #d93025; margin-right: 4px; animation: pulse 1.2s infinite;
+}
+@keyframes pulse { 50% { opacity: 0.25; } }

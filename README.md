@@ -8,15 +8,19 @@ Extensão do Chrome que percorre as aulas de uma plataforma de estudo, transcrev
 
 - TypeScript + React (painel lateral)
 - Chrome Extension Manifest V3, empacotada com Vite + CRXJS
-- OpenAI (transcrição de áudio) + Claude (resumos e interpretação) *(próximas etapas)*
+- Transcrição: Groq `whisper-large-v3-turbo` (gratuito) ou OpenAI `gpt-4o-mini-transcribe` (pago), configurável
+- Resumos com IA *(próxima etapa)*
 - Google Docs API *(próximas etapas)*
 
 ## Arquitetura
 
 ```
 src/
-├── background/   service worker (abre o painel lateral)
-├── content/      roda na página da plataforma e responde ao painel
+├── background/   service worker: transcreve os trechos em fila e guarda o estado (job.ts)
+├── content/
+│   ├── index.ts      roda na página da plataforma e responde ao painel
+│   └── player.ts     roda no iframe do player: play, pausa e gravação do áudio do vídeo
+├── offscreen/    plano B: grava o áudio da aba inteira
 ├── platforms/    um adaptador por plataforma de estudo
 │   ├── types.ts      contrato PlatformAdapter
 │   ├── platos.ts     Platos LMS (infoprod.platosedu.io)
@@ -45,10 +49,28 @@ No Chrome: `chrome://extensions` → ativar **Modo do desenvolvedor** → **Carr
 
 Clique no ícone da extensão para abrir o painel lateral.
 
+## Como a transcrição funciona
+
+A plataforma não tem legendas, então a extensão grava o áudio enquanto o vídeo toca:
+
+1. No painel, **Transcrever aula** pede ao script do player para voltar o vídeo ao início e dar play.
+2. O player grava o áudio **direto do `<video>`** (`captureStream` + `MediaRecorder`), em trechos de 3 min.
+3. Cada trecho vai para o background, que transcreve em ordem e mostra o texto ao vivo no painel. O ícone mostra `REC`.
+4. Quando o vídeo termina (ou você clica em parar), a transcrição fica salva por aula.
+
+**Plano B:** se o player não permitir gravar o `<video>` (vídeo protegido, por exemplo), a extensão grava o áudio da aba inteira com `chrome.tabCapture` num documento offscreen.
+
+O provedor e a chave são escolhidos nas configurações do painel e ficam só no `chrome.storage.local`.
+
+| Provedor | Custo | Limite |
+| --- | --- | --- |
+| Groq | gratuito | ~8 h de áudio por dia |
+| OpenAI | ~US$ 0,003/min | sem limite prático |
+
 ## Roadmap
 
 - [x] 1. Criar extensão e detectar a página de uma aula
-- [ ] 2. Extrair o conteúdo de uma aula (captura de áudio + transcrição)
+- [x] 2. Extrair o conteúdo de uma aula (captura de áudio + transcrição)
 - [ ] 3. Gerar resumo estruturado com IA
 - [ ] 4. Criar automaticamente um Google Docs
 - [ ] 5. Processar um módulo inteiro do curso

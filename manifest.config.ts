@@ -9,13 +9,20 @@ export default defineManifest({
   action: { default_title: 'Abrir Aula Flow' },
   side_panel: { default_path: 'src/sidepanel/index.html' },
   background: { service_worker: 'src/background/index.ts', type: 'module' },
-  permissions: ['sidePanel', 'storage', 'tabs', 'webNavigation'],
+  permissions: ['sidePanel', 'storage', 'tabs', 'webNavigation', 'tabCapture', 'offscreen', 'scripting'],
   // Plataformas suportadas. Para adicionar outra: novo adaptador em src/platforms + domínio aqui.
-  host_permissions: ['https://*.platosedu.io/*'],
+  host_permissions: ['https://*.platosedu.io/*', 'https://*.mdstrm.com/*', 'https://api.groq.com/*', 'https://api.openai.com/*'],
   content_scripts: [
     {
       matches: ['https://*.platosedu.io/*'],
       js: ['src/content/index.ts'],
+      all_frames: true,
+      run_at: 'document_idle',
+    },
+    {
+      // Players de vídeo embutidos: controla play/pausa e avisa quando o vídeo termina.
+      matches: ['https://*.mdstrm.com/*'],
+      js: ['src/content/player.ts'],
       all_frames: true,
       run_at: 'document_idle',
     },
