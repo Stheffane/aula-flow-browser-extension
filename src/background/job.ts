@@ -1,4 +1,4 @@
-import { getItem, setItem } from '../shared/storage'
+import { getItem, setItem, setRecord } from '../shared/storage'
 import { transcribe, type Transcriber } from '../shared/transcription'
 import type { Job, JobStatus, LessonRef } from '../shared/types'
 
@@ -61,10 +61,11 @@ export function addSegment(dataUrl: string) {
 export function finishJob() {
   return enqueue(async (job) => {
     if (!job.preview) throw new Error('Nenhum áudio foi capturado.')
-    const transcripts = await getItem('transcripts')
-    await setItem('transcripts', {
-      ...transcripts,
-      [job.lesson.url]: { title: job.lesson.title, text: job.preview, createdAt: Date.now() },
+    await setRecord('transcripts', job.lesson.url, {
+      title: job.lesson.title,
+      course: job.lesson.course,
+      text: job.preview,
+      createdAt: Date.now(),
     })
     return { ...job, status: 'done' }
   })

@@ -15,6 +15,10 @@ export interface PageInfo {
   url: string
   title: string
   courseId?: string
+  /** Nome do curso/disciplina, quando a plataforma mostra. */
+  course?: string
+  /** Módulos listados no menu do curso (para o seletor de módulo). */
+  modules?: string[]
   videos: VideoSource[]
 }
 
@@ -32,6 +36,8 @@ export interface PageSnapshot {
 export interface LessonRef {
   url: string
   title: string
+  /** Nome do curso/disciplina (usado para a pasta no Google Drive). */
+  course?: string
 }
 
 export type JobStatus = 'recording' | 'transcribing' | 'done' | 'error'
@@ -49,8 +55,29 @@ export interface Job {
 
 export interface Transcript {
   title: string
+  course?: string
   text: string
   createdAt: number
+}
+
+export interface Summary {
+  status: 'loading' | 'done' | 'error'
+  markdown?: string
+  error?: string
+  model?: string
+  createdAt: number
+}
+
+/** Informações da aula definidas por você no painel (ex.: módulo). */
+export interface LessonMeta {
+  module?: string
+}
+
+/** Google Docs único de um curso. */
+export interface CourseDoc {
+  id: string
+  url: string
+  updatedAt: number
 }
 
 export type Message =
@@ -67,6 +94,8 @@ export type Message =
   | { type: 'JOB_START'; lesson: LessonRef; transcriber: Transcriber }
   | { type: 'CAPTURE_REQUEST'; streamId: string } // plano B: captura da aba via offscreen
   | { type: 'CAPTURE_STOP' }
+  | { type: 'SUMMARIZE'; lessonUrl: string }
+  | { type: 'UPDATE_COURSE_DOC'; course: string }
   // background → offscreen
   | { type: 'OFFSCREEN_START'; streamId: string }
   // player/offscreen → background

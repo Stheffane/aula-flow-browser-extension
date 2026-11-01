@@ -167,17 +167,15 @@ export function Transcription({ lesson }: { lesson: LessonRef | null }) {
       {error && <p className="error">{error}</p>}
 
       {!busy && transcript && (
-        <div className="stack">
-          <div className="row">
-            <span className="small" style={{ color: 'var(--ok)' }}>
-              ✓ Transcrição pronta · {transcript.text.split(/\s+/).length} palavras
-            </span>
-            <button className="ghost" onClick={() => copy(transcript.text)}>
-              {copied ? 'Copiado!' : 'Copiar'}
-            </button>
-          </div>
+        <details className="stack">
+          <summary className="small" style={{ color: 'var(--ok)' }}>
+            ✓ Transcrição pronta · {transcript.text.split(/\s+/).length} palavras (ver texto original)
+          </summary>
+          <button className="ghost" onClick={() => copy(transcript.text)}>
+            {copied ? 'Copiado!' : 'Copiar transcrição'}
+          </button>
           <div className="transcript">{transcript.text}</div>
-        </div>
+        </details>
       )}
     </section>
   )

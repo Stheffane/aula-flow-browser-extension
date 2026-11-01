@@ -76,3 +76,22 @@ input, select {
   background: #d93025; margin-right: 4px; animation: pulse 1.2s infinite;
 }
 @keyframes pulse { 50% { opacity: 0.25; } }
+
+.markdown { font-size: 13px; line-height: 1.55; }
+.markdown h1 { font-size: 17px; margin: 4px 0 8px; }
+.markdown h2 { font-size: 15px; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.markdown h3 { font-size: 14px; margin: 12px 0 4px; }
+.markdown p, .markdown ul, .markdown ol { margin: 6px 0; }
+.markdown ul, .markdown ol { padding-left: 20px; }
+.markdown li { margin: 3px 0; }
+.markdown code { font-size: 12px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.markdown pre { background: var(--bg); padding: 8px; border-radius: 6px; overflow-x: auto; }
+.markdown pre code { padding: 0; }
+.markdown blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--accent); color: var(--muted); }
+
+.docs { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: var(--bg); }
+.doc-link { font-weight: 600; color: var(--accent); text-decoration: none; }
+.doc-link:hover { text-decoration: underline; }
+label.inline { flex-direction: row; align-items: center; justify-content: space-between; margin: 10px 0 0; }
+label.inline select { padding: 4px 8px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }

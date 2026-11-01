@@ -19,6 +19,21 @@ function activeLessonTitle(doc: Document): string | undefined {
   return el?.textContent?.replace(/\s+/g, ' ').trim() || undefined
 }
 
+/** O nome da disciplina é o título logo antes de "Início: dd/mm/aaaa". */
+function courseName(doc: Document): string | undefined {
+  const headings = [...doc.querySelectorAll('h1, h2, h3, h4, h5, h6')].map((h) => h.textContent?.trim() ?? '')
+  const i = headings.findIndex((t) => /^in[ií]cio:/i.test(t))
+  return i > 0 ? headings[i - 1] : undefined
+}
+
+/** Módulos do menu "Conteúdo do Curso" (botões "Módulo 01", "Módulo 02"...). */
+function moduleNames(doc: Document): string[] {
+  const names = [...doc.querySelectorAll('button, h1, h2, h3, h4, h5, h6')]
+    .map((el) => el.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+    .filter((t) => /^m[óo]dulo\s*\d+$/i.test(t))
+  return [...new Set(names)]
+}
+
 export const platosAdapter: PlatformAdapter = {
   id: 'platos',
   name: 'Platos LMS',
@@ -42,6 +57,8 @@ export const platosAdapter: PlatformAdapter = {
       url: url.href,
       title: activeLessonTitle(doc) ?? doc.title,
       courseId,
+      course: courseName(doc),
+      modules: moduleNames(doc),
       videos,
     }
   },

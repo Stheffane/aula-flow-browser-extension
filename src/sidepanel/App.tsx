@@ -4,6 +4,8 @@ import { askAllFrames, getActiveTab } from '../shared/tabs'
 import type { PageKind } from '../shared/types'
 import { Settings } from './Settings'
 import { Transcription } from './Transcription'
+import { Summary } from './Summary'
+import { ModulePicker } from './ModulePicker'
 
 const KIND_LABEL: Record<PageKind, string> = {
   lesson: 'Aula com vídeo',
@@ -51,6 +53,12 @@ export function App() {
             <span className={`badge ${state.info.kind}`}>{KIND_LABEL[state.info.kind]}</span>
             <h2>{state.info.title}</h2>
             <dl>
+              {state.info.course && (
+                <>
+                  <dt>Curso</dt>
+                  <dd>{state.info.course}</dd>
+                </>
+              )}
               <dt>Plataforma</dt>
               <dd>{state.info.platform}</dd>
               {state.info.courseId && (
@@ -62,6 +70,9 @@ export function App() {
               <dt>Vídeos</dt>
               <dd>{state.info.videos.length}</dd>
             </dl>
+            {state.info.kind === 'lesson' && (
+              <ModulePicker lessonUrl={state.info.url} modules={state.info.modules ?? []} />
+            )}
             {state.info.videos.map((v) => (
               <p key={v.src} className="video">
                 <strong>{v.type}</strong> {v.src}
@@ -78,10 +89,14 @@ export function App() {
       <Transcription
         lesson={
           state.status === 'ready' && state.info.kind === 'lesson'
-            ? { url: state.info.url, title: state.info.title }
+            ? { url: state.info.url, title: state.info.title, course: state.info.course }
             : null
         }
       />
+
+      {state.status === 'ready' && state.info.kind === 'lesson' && (
+        <Summary lesson={{ url: state.info.url, title: state.info.title, course: state.info.course }} />
+      )}
 
       <Settings />
     </main>
