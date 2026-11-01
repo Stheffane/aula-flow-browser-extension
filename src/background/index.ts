@@ -1,8 +1,9 @@
 import { setItem } from '../shared/storage'
 import type { Message } from '../shared/types'
 import { addSegment, failJob, finishJob, markTranscribing, startJob } from './job'
-import { summarizeLesson } from './summarize'
+import { autoSummarize, autoUpdateCourseDoc, summarizeLesson } from './summarize'
 import { updateCourseDoc } from './courseDoc'
+import { checkRun, onLessonFinished, startRun, stopRun, WATCHDOG } from './run'
 import { getItem } from '../shared/storage'
 
 // Abre o painel lateral ao clicar no ícone da extensão.
@@ -24,9 +25,24 @@ async function clearInterrupted() {
     ]),
   )
   await setItem('summaries', fixed)
+  const run = await getItem('run')
+  if (run?.status === 'running') await setItem('run', { ...run, status: 'error', error: 'Interrompido: a extensão foi recarregada. Processe de novo (as aulas prontas são puladas).' })
 }
 chrome.runtime.onStartup.addListener(clearInterrupted)
 chrome.runtime.onInstalled.addListener(clearInterrupted)
+chrome.runtime.onInstalled.addListener(removeOldPlatosKeys)
+
+/**
+ * Até a etapa 4, as aulas da Platos eram salvas pela URL, que é igual para todas as aulas
+ * (uma sobrescrevia a outra). Agora a chave inclui o ID do vídeo: remove os registros antigos.
+ */
+async function removeOldPlatosKeys() {
+  const isOld = (key: string) => key.includes('platosedu.io') && !key.includes('#video-')
+  for (const name of ['transcripts', 'summaries', 'lessonMeta'] as const) {
+    const all = await getItem(name)
+    if (Object.keys(all).some(isOld)) await setItem(name, Object.fromEntries(Object.entries(all).filter(([k]) => !isOld(k))))
+  }
+}
 
 const OFFSCREEN_URL = 'src/offscreen/index.html'
 
@@ -58,7 +74,12 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
       markTranscribing()
         .then(finishJob)
         .then(autoSummarize)
+        .finally(onLessonFinished) // se estiver processando um módulo, segue para a próxima aula
       break
+    case 'RUN_START':
+      return reply(startRun(msg.tabId, msg.course, msg.module, msg.startId))
+    case 'RUN_STOP':
+      return reply(stopRun())
     case 'SUMMARIZE':
       return reply(
         summarizeLesson(msg.lessonUrl).then(async () => {
@@ -68,25 +89,17 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
       )
     case 'UPDATE_COURSE_DOC':
       return reply(updateCourseDoc(msg.course))
+    case 'PLAYER_STATUS':
+      // Guarda o último sinal do player: o vigia usa para perceber vídeo parado.
+      chrome.storage.session.set({ lastPlayerStatus: Date.now() })
+      break
     case 'CAPTURE_FAILED':
-      failJob(msg.error)
+      failJob(msg.error).finally(onLessonFinished)
       break
   }
 })
 
-/** Gera o resumo assim que a transcrição termina, se houver chave configurada. */
-async function autoSummarize() {
-  const [job, settings] = await Promise.all([getItem('job'), getItem('settings')])
-  if (job?.status !== 'done' || !settings.apiKeys[settings.summaryProvider]) return
-  await summarizeLesson(job.lesson.url).catch(() => undefined) // o erro já fica salvo no resumo
-  await autoUpdateCourseDoc(job.lesson.course)
-}
-
-/**
- * Se o documento do curso já existe, atualiza com a aula nova.
- * (A primeira criação é pelo botão no painel, porque pode precisar do login do Google.)
- */
-export async function autoUpdateCourseDoc(course = 'Sem curso') {
-  const docs = await getItem('courseDocs')
-  if (docs[course]) await updateCourseDoc(course).catch((e) => console.warn('Falha ao atualizar o doc do curso', e))
-}
+// Vigia do processamento de módulo: retoma passos perdidos se o service worker foi reiniciado.
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === WATCHDOG) checkRun()
+})

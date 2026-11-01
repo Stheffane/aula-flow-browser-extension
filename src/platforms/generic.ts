@@ -1,5 +1,5 @@
 import type { PlatformAdapter } from './types'
-import { findVideos } from './dom'
+import { findVideos, lessonKey } from './dom'
 
 /** Fallback para qualquer site: só detecta se há vídeo na página. */
 export const genericAdapter: PlatformAdapter = {
@@ -12,6 +12,7 @@ export const genericAdapter: PlatformAdapter = {
       platform: this.name,
       kind: videos.length ? 'lesson' : 'unknown',
       url: url.href,
+      lessonKey: lessonKey(url, videos),
       title: doc.title,
       videos,
     }

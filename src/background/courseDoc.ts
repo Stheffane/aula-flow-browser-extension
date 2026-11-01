@@ -12,6 +12,7 @@ interface Lesson {
   url: string
   title: string
   module: string
+  order?: number
   createdAt: number
   sections: { heading: string; body: string }[]
 }
@@ -44,7 +45,9 @@ function compareModules(a: string, b: string) {
 /** Junta os resumos de todas as aulas do curso num único Markdown. */
 export function buildCourseMarkdown(course: string, lessons: Lesson[]) {
   const byModule = new Map<string, Lesson[]>()
-  for (const l of [...lessons].sort((a, b) => a.createdAt - b.createdAt)) {
+  // Ordem do menu quando conhecida; senão, a ordem em que as aulas foram processadas.
+  const sorted = [...lessons].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || a.createdAt - b.createdAt)
+  for (const l of sorted) {
     byModule.set(l.module, [...(byModule.get(l.module) ?? []), l])
   }
   const modules = [...byModule.keys()].sort(compareModules)
@@ -124,7 +127,7 @@ export async function updateCourseDoc(course: string) {
     .filter(([url, t]) => (t.course || 'Sem curso') === course && summaries[url]?.status === 'done')
     .map(([url, t]) => {
       const { title, sections } = parseLesson(summaries[url].markdown ?? '')
-      return { url, title: title || t.title, module: meta[url]?.module || NO_MODULE, createdAt: t.createdAt, sections }
+      return { url, title: title || t.title, module: meta[url]?.module || NO_MODULE, order: meta[url]?.order, createdAt: t.createdAt, sections }
     })
   if (!lessons.length) throw new Error('Nenhuma aula deste curso tem material de estudo ainda.')
 

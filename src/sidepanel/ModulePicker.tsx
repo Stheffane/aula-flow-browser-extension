@@ -3,11 +3,12 @@ import { setRecord } from '../shared/storage'
 
 /**
  * Módulo da aula atual, usado para organizar o documento do curso.
- * (Por enquanto escolhido à mão; na etapa 5 a navegação pelo módulo preenche sozinha.)
+ * Vem do menu da plataforma quando dá para detectar; pode ser trocado à mão.
  */
-export function ModulePicker({ lessonUrl, modules }: { lessonUrl: string; modules: string[] }) {
+export function ModulePicker({ lessonUrl, modules, detected }: { lessonUrl: string; modules: string[]; detected?: string }) {
   const [meta] = useStorage('lessonMeta')
-  const value = meta[lessonUrl]?.module ?? ''
+  // O módulo detectado na página vale até você escolher outro.
+  const value = meta[lessonUrl]?.module ?? detected ?? ''
   const options = [...new Set([...modules, value].filter(Boolean))]
 
   return (

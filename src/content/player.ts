@@ -11,11 +11,18 @@ function watch(video: HTMLVideoElement) {
   if (watched.has(video)) return
   watched.add(video)
 
-  video.addEventListener('ended', async () => {
+  // Alguns players não disparam "ended" (pausam no fim ou mostram uma tela final):
+  // considera terminado também quando pausa a menos de 1,5 s do fim.
+  const atEnd = () => Number.isFinite(video.duration) && video.duration - video.currentTime < 1.5
+  const finish = async () => {
+    if (!recording) return
     await stopRecording()
     send({ type: 'PLAYER_ENDED' })
-  })
+  }
+  video.addEventListener('ended', finish)
+  video.addEventListener('pause', () => atEnd() && finish())
   video.addEventListener('timeupdate', () => {
+    if (atEnd() && video.paused) finish()
     if (Date.now() - lastStatus < 3000) return
     lastStatus = Date.now()
     send({ type: 'PLAYER_STATUS', currentTime: video.currentTime, duration: video.duration })

@@ -9,16 +9,38 @@ export interface VideoSource {
   duration?: number
 }
 
+/** Uma aula no menu do curso. */
+export interface OutlineItem {
+  /** ID da aula na plataforma (ex.: "89332"). */
+  id: string
+  label: string
+  current: boolean
+}
+
+export interface OutlineModule {
+  name: string
+  items: OutlineItem[]
+}
+
 export interface PageInfo {
   platform: string
   kind: PageKind
   url: string
+  /**
+   * Identifica a aula. Em plataformas SPA a URL não muda entre aulas,
+   * então a chave combina a URL com o ID do vídeo.
+   */
+  lessonKey: string
   title: string
   courseId?: string
   /** Nome do curso/disciplina, quando a plataforma mostra. */
   course?: string
   /** Módulos listados no menu do curso (para o seletor de módulo). */
   modules?: string[]
+  /** Módulo da aula atual, quando a plataforma indica. */
+  module?: string
+  /** Menu do curso: módulos e aulas (para processar um módulo inteiro). */
+  outline?: OutlineModule[]
   videos: VideoSource[]
 }
 
@@ -31,13 +53,17 @@ export interface PageSnapshot {
   videos: string[]
   buttons: string[]
   active: string[]
+  navButtons: string[]
+  courseMenu: string[]
 }
 
 export interface LessonRef {
+  /** Chave da aula (PageInfo.lessonKey). */
   url: string
   title: string
   /** Nome do curso/disciplina (usado para a pasta no Google Drive). */
   course?: string
+  module?: string
 }
 
 export type JobStatus = 'recording' | 'transcribing' | 'done' | 'error'
@@ -48,6 +74,8 @@ export interface Job {
   status: JobStatus
   segmentsDone: number
   startedAt: number
+  /** Última mudança (o vigia usa para detectar etapas travadas). */
+  updatedAt?: number
   /** Texto já transcrito até agora (aparece ao vivo no painel). */
   preview: string
   error?: string
@@ -71,6 +99,25 @@ export interface Summary {
 /** Informações da aula definidas por você no painel (ex.: módulo). */
 export interface LessonMeta {
   module?: string
+  /** Posição da aula no módulo (para ordenar o documento como no menu). */
+  order?: number
+}
+
+/** Processamento automático de um módulo inteiro. */
+export interface Run {
+  tabId: number
+  course?: string
+  module: string
+  items: (OutlineItem & {
+    order: number
+    status: 'pending' | 'running' | 'done' | 'skipped' | 'error'
+    /** Chave da aula, quando já foi aberta. */
+    key?: string
+    error?: string
+  })[]
+  index: number
+  status: 'running' | 'stopped' | 'done' | 'error'
+  error?: string
 }
 
 /** Google Docs único de um curso. */
@@ -96,6 +143,10 @@ export type Message =
   | { type: 'CAPTURE_STOP' }
   | { type: 'SUMMARIZE'; lessonUrl: string }
   | { type: 'UPDATE_COURSE_DOC'; course: string }
+  | { type: 'RUN_START'; tabId: number; course?: string; module: OutlineModule; startId: string }
+  | { type: 'RUN_STOP' }
+  // background → página
+  | { type: 'OPEN_LESSON'; id: string }
   // background → offscreen
   | { type: 'OFFSCREEN_START'; streamId: string }
   // player/offscreen → background

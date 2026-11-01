@@ -23,7 +23,7 @@ export default defineManifest(({ mode }) => {
     action: { default_title: 'Abrir Aula Flow' },
     side_panel: { default_path: 'src/sidepanel/index.html' },
     background: { service_worker: 'src/background/index.ts', type: 'module' },
-    permissions: ['sidePanel', 'storage', 'tabs', 'webNavigation', 'tabCapture', 'offscreen', 'scripting', 'identity'],
+    permissions: ['sidePanel', 'storage', 'tabs', 'webNavigation', 'tabCapture', 'offscreen', 'scripting', 'identity', 'alarms'],
     // Plataformas suportadas. Para adicionar outra: novo adaptador em src/platforms + domínio aqui.
     host_permissions: [
       'https://*.platosedu.io/*',

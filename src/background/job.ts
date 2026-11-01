@@ -16,7 +16,7 @@ const BADGE: Record<JobStatus, { text: string; color: string }> = {
 }
 
 async function save(job: Job) {
-  await setItem('job', job)
+  await setItem('job', { ...job, updatedAt: Date.now() })
   // Indicador no ícone, visível mesmo com o painel fechado. "OK" e "!" somem depois de um tempo.
   chrome.action.setBadgeText({ text: BADGE[job.status].text })
   chrome.action.setBadgeBackgroundColor({ color: BADGE[job.status].color })
@@ -45,6 +45,10 @@ function enqueue(step: (job: Job) => Promise<Job | void>) {
 export async function startJob(lesson: LessonRef, transcriber: Transcriber) {
   await queue
   await chrome.storage.session.set({ transcriber })
+  if (lesson.module) {
+    const meta = await getItem('lessonMeta')
+    if (!meta[lesson.url]?.module) await setRecord('lessonMeta', lesson.url, { module: lesson.module })
+  }
   await save({ lesson, status: 'recording', segmentsDone: 0, startedAt: Date.now(), preview: '' })
 }
 

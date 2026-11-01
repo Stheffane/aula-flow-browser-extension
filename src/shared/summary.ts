@@ -56,14 +56,22 @@ Links, repositórios, arquivos, ferramentas, bibliotecas e leituras citados na a
 ## Perguntas para revisão
 3 a 5 perguntas, cada uma seguida da resposta em uma linha começando com "Resposta:".`
 
-const userPrompt = (title: string, transcript: string) => `Título da aula: ${title}\n\nTranscrição:\n"""\n${transcript}\n"""`
+const userPrompt = (title: string, transcript: string, context?: string) =>
+  [
+    `Título da aula: ${title}`,
+    context &&
+      `Aulas anteriores deste curso e os conceitos que já foram explicados nelas. Não repita essas explicações: quando um desses conceitos aparecer, explique só o que for novo e faça referência à aula anterior.\n${context}`,
+    `Transcrição:\n"""\n${transcript}\n"""`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
 async function errorMessage(res: Response, name: string) {
   const body = await res.json().catch(() => null)
   return `${name}: ${body?.error?.message ?? `erro ${res.status}`}`
 }
 
-async function withGemini(title: string, transcript: string, apiKey: string) {
+async function withGemini(title: string, transcript: string, apiKey: string, context?: string) {
   const { model, name } = SUMMARY_PROVIDERS.gemini
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
@@ -71,7 +79,7 @@ async function withGemini(title: string, transcript: string, apiKey: string) {
     signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt(title, transcript) }] }],
+      contents: [{ role: 'user', parts: [{ text: userPrompt(title, transcript, context) }] }],
       generationConfig: { temperature: 0.3 },
     }),
   })
@@ -82,7 +90,7 @@ async function withGemini(title: string, transcript: string, apiKey: string) {
   return text
 }
 
-async function withGroq(title: string, transcript: string, apiKey: string) {
+async function withGroq(title: string, transcript: string, apiKey: string, context?: string) {
   const { model, name } = SUMMARY_PROVIDERS.groq
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -93,7 +101,7 @@ async function withGroq(title: string, transcript: string, apiKey: string) {
       temperature: 0.3,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt(title, transcript) },
+        { role: 'user', content: userPrompt(title, transcript, context) },
       ],
     }),
   })
@@ -102,6 +110,8 @@ async function withGroq(title: string, transcript: string, apiKey: string) {
   return data.choices[0].message.content as string
 }
 
-export function summarize(provider: SummaryProviderId, title: string, transcript: string, apiKey: string) {
-  return provider === 'gemini' ? withGemini(title, transcript, apiKey) : withGroq(title, transcript, apiKey)
+export function summarize(provider: SummaryProviderId, title: string, transcript: string, apiKey: string, context?: string) {
+  return provider === 'gemini'
+    ? withGemini(title, transcript, apiKey, context)
+    : withGroq(title, transcript, apiKey, context)
 }

@@ -1,4 +1,4 @@
-import type { CourseDoc, Job, LessonMeta, Summary, Transcript } from './types'
+import type { CourseDoc, Job, LessonMeta, Run, Summary, Transcript } from './types'
 import type { ProviderId } from './transcription'
 import type { SummaryProviderId } from './summary'
 
@@ -20,6 +20,8 @@ export interface Settings {
 export interface StorageShape {
   settings: Settings
   job: Job | null
+  /** Processamento de módulo em andamento (etapa 5). */
+  run: Run | null
   transcripts: Record<string, Transcript>
   summaries: Record<string, Summary>
   lessonMeta: Record<string, LessonMeta>
@@ -36,6 +38,7 @@ export const DEFAULTS: StorageShape = {
     googleEmail: '',
   },
   job: null,
+  run: null,
   transcripts: {},
   summaries: {},
   lessonMeta: {},

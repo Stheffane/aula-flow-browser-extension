@@ -6,6 +6,7 @@ import { Settings } from './Settings'
 import { Transcription } from './Transcription'
 import { Summary } from './Summary'
 import { ModulePicker } from './ModulePicker'
+import { ModuleRunner } from './ModuleRunner'
 
 const KIND_LABEL: Record<PageKind, string> = {
   lesson: 'Aula com vídeo',
@@ -71,7 +72,7 @@ export function App() {
               <dd>{state.info.videos.length}</dd>
             </dl>
             {state.info.kind === 'lesson' && (
-              <ModulePicker lessonUrl={state.info.url} modules={state.info.modules ?? []} />
+              <ModulePicker lessonUrl={state.info.lessonKey} modules={state.info.modules ?? []} detected={state.info.module} />
             )}
             {state.info.videos.map((v) => (
               <p key={v.src} className="video">
@@ -85,17 +86,20 @@ export function App() {
         </>
       )}
 
+      {/* Também aparece fora da aula, para acompanhar um módulo em andamento */}
+      <ModuleRunner info={state.status === 'ready' ? state.info : undefined} />
+
       {/* Sempre visível: mostra a gravação em andamento mesmo se você trocar de página */}
       <Transcription
         lesson={
           state.status === 'ready' && state.info.kind === 'lesson'
-            ? { url: state.info.url, title: state.info.title, course: state.info.course }
+            ? { url: state.info.lessonKey, title: state.info.title, course: state.info.course, module: state.info.module }
             : null
         }
       />
 
       {state.status === 'ready' && state.info.kind === 'lesson' && (
-        <Summary lesson={{ url: state.info.url, title: state.info.title, course: state.info.course }} />
+        <Summary lesson={{ url: state.info.lessonKey, title: state.info.title, course: state.info.course, module: state.info.module }} />
       )}
 
       <Settings />

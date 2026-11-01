@@ -16,7 +16,7 @@ Extensão do Chrome que percorre as aulas de uma plataforma de estudo, transcrev
 
 ```
 src/
-├── background/   service worker: transcrição em fila (job.ts), resumo (summarize.ts) e documento do curso (courseDoc.ts)
+├── background/   service worker: transcrição (job.ts), resumo (summarize.ts), documento do curso (courseDoc.ts) e processamento do módulo (run.ts)
 ├── content/
 │   ├── index.ts      roda na página da plataforma e responde ao painel
 │   └── player.ts     roda no iframe do player: play, pausa e gravação do áudio do vídeo
@@ -91,10 +91,23 @@ Cada curso tem **um único Google Docs**, regerado a partir dos resumos salvos s
 …
 ```
 
-- O módulo de cada aula é escolhido no painel (na etapa 5 a navegação pelo módulo preenche sozinha).
+- O módulo e a ordem de cada aula vêm do menu da plataforma (ou do seletor no painel).
 - O Markdown é convertido em HTML (`marked`) e enviado ao Drive com conversão para Google Docs: títulos, listas, negrito e código viram formatação nativa, numa única requisição.
 - O documento fica em `Aula Flow / <nome do curso>` no Drive. O escopo é `drive.file`: a extensão só acessa os arquivos que ela mesma criou.
 - **Atenção:** como o documento é regerado, edições feitas direto no Google Docs são substituídas na próxima atualização.
+
+## Processar um módulo inteiro
+
+Na aula aberta, o painel mostra **Processar <módulo>** (`src/background/run.ts`):
+
+1. A extensão lê o menu "Conteúdo do Curso" (módulos → aulas) pelo adaptador da plataforma.
+2. Para cada aula do módulo: abre pelo menu, espera o vídeo trocar, grava e transcreve.
+3. Ao terminar a transcrição: gera o material de estudo (com a lista do que as **aulas anteriores** já explicaram, para não repetir) e atualiza o documento do curso.
+4. Segue para a próxima aula. Aulas já processadas são puladas, então dá para parar e retomar.
+
+O estado fica em `chrome.storage` e o avanço é guiado por eventos, então o painel pode ser fechado durante o processamento.
+
+**Identificação das aulas:** a Platos é uma SPA e a URL não muda entre aulas; cada aula é identificada pela URL + ID do vídeo (`lessonKey`).
 
 ## Roadmap
 
@@ -102,5 +115,5 @@ Cada curso tem **um único Google Docs**, regerado a partir dos resumos salvos s
 - [x] 2. Extrair o conteúdo de uma aula (captura de áudio + transcrição)
 - [x] 3. Gerar resumo estruturado com IA
 - [x] 4. Criar automaticamente um Google Docs
-- [ ] 5. Processar um módulo inteiro do curso
+- [x] 5. Processar um módulo inteiro do curso
 - [ ] 6. Progresso, recuperação de erros e configurações
