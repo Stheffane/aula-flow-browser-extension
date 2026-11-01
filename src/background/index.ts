@@ -8,8 +8,25 @@ import { getItem } from '../shared/storage'
 // Abre o painel lateral ao clicar no ícone da extensão.
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(console.error)
 
-// Se o navegador fechou no meio de uma captura, o job antigo não vale mais.
-chrome.runtime.onStartup.addListener(() => setItem('job', null))
+/**
+ * Quando o navegador abre ou a extensão é recarregada/atualizada, o que estava em andamento
+ * foi interrompido: marca como erro para os botões voltarem (em vez de ficar "gerando" para sempre).
+ */
+async function clearInterrupted() {
+  const [job, summaries] = await Promise.all([getItem('job'), getItem('summaries')])
+  if (job && (job.status === 'recording' || job.status === 'transcribing')) {
+    await setItem('job', { ...job, status: 'error', error: 'Interrompido: a extensão foi recarregada. Transcreva de novo.' })
+  }
+  const fixed = Object.fromEntries(
+    Object.entries(summaries).map(([url, s]) => [
+      url,
+      s.status === 'loading' ? { ...s, status: 'error' as const, error: 'Interrompido: a extensão foi recarregada. Gere de novo.' } : s,
+    ]),
+  )
+  await setItem('summaries', fixed)
+}
+chrome.runtime.onStartup.addListener(clearInterrupted)
+chrome.runtime.onInstalled.addListener(clearInterrupted)
 
 const OFFSCREEN_URL = 'src/offscreen/index.html'
 

@@ -7,6 +7,9 @@ export const SUMMARY_PROVIDERS = {
   groq: { name: 'Groq (gratuito, aulas curtas)', model: 'openai/gpt-oss-120b', keyUrl: 'https://console.groq.com/keys' },
 } as const
 
+/** Se a IA não responder nesse tempo, o resumo vira erro (em vez de ficar "gerando" para sempre). */
+const TIMEOUT_MS = 3 * 60_000
+
 export type SummaryProviderId = keyof typeof SUMMARY_PROVIDERS
 
 const SYSTEM_PROMPT = `Você é um tutor que transforma a transcrição de uma videoaula em material de estudo claro, em português do Brasil.
@@ -65,6 +68,7 @@ async function withGemini(title: string, transcript: string, apiKey: string) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt(title, transcript) }] }],
@@ -83,6 +87,7 @@ async function withGroq(title: string, transcript: string, apiKey: string) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
       model,
       temperature: 0.3,

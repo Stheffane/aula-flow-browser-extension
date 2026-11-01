@@ -1,59 +1,68 @@
 import { useEffect, useState } from 'react'
+import { useStorage } from './useStorage'
+import { currentAccount, GOOGLE_CLIENT_ID, signIn, signOut } from '../shared/google'
 
-/**
- * Conta Google usada para criar os documentos.
- * O chrome.identity sempre usa a conta logada no perfil do Chrome, então não há campo de e-mail:
- * para usar outro Gmail, entre com ele no Chrome (ou use outro perfil do Chrome).
- */
+/** Conta Google onde os documentos são criados. Pode ser qualquer Gmail. */
 export function GoogleAccount() {
-  const [email, setEmail] = useState('')
-  const [connected, setConnected] = useState(false)
+  const [settings, setSettings] = useStorage('settings')
+  const [email, setEmail] = useState<string>()
+  const [waiting, setWaiting] = useState(false)
   const [error, setError] = useState('')
 
-  async function check() {
-    const info = await chrome.identity.getProfileUserInfo({ accountStatus: chrome.identity.AccountStatus.ANY })
-    setEmail(info.email)
-    const { token } = await chrome.identity.getAuthToken({ interactive: false }).catch(() => ({ token: undefined }))
-    setConnected(!!token)
-  }
-
   useEffect(() => {
-    check()
+    currentAccount().then(setEmail)
+    // O login acontece no background; o painel só observa a sessão salva.
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if ('google' in changes) currentAccount().then(setEmail)
+    }
+    chrome.storage.session.onChanged.addListener(onChanged)
+    return () => chrome.storage.session.onChanged.removeListener(onChanged)
   }, [])
+
+  if (!GOOGLE_CLIENT_ID) {
+    return <p className="small muted">Google Docs desativado: falta o VITE_GOOGLE_CLIENT_ID no arquivo .env.</p>
+  }
 
   async function connect() {
     setError('')
+    setWaiting(true)
     try {
-      await chrome.identity.getAuthToken({ interactive: true })
-      await check()
+      await signIn(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setWaiting(false)
     }
   }
 
   async function disconnect() {
-    await chrome.identity.clearAllCachedAuthTokens()
-    setConnected(false)
-  }
-
-  if (!chrome.runtime.getManifest().oauth2) {
-    return <p className="small muted">Google Docs desativado: falta o VITE_GOOGLE_CLIENT_ID no arquivo .env.</p>
+    await signOut()
+    setEmail(undefined)
   }
 
   return (
     <div className="stack">
+      <label>
+        Gmail para os documentos (opcional)
+        <input
+          type="email"
+          placeholder="voce@gmail.com"
+          value={settings.googleEmail}
+          onChange={(e) => setSettings({ ...settings, googleEmail: e.target.value.trim() })}
+        />
+      </label>
       <div className="row">
-        <span className="small">
-          Google: {email ? <strong>{email}</strong> : 'nenhuma conta no Chrome'}
-          {connected ? ' · conectado' : ''}
-        </span>
-        <button className="ghost" onClick={connected ? disconnect : connect}>
-          {connected ? 'Desconectar' : 'Conectar'}
+        <span className="small">{email ? <>Conectado: <strong>{email}</strong></> : 'Google não conectado'}</span>
+        <button className="ghost" onClick={email ? disconnect : connect} disabled={waiting}>
+          {waiting ? 'Aguardando…' : email ? 'Desconectar' : 'Conectar'}
         </button>
       </div>
-      <p className="small muted">
-        Os documentos são criados na conta logada neste perfil do Chrome. Para usar outro Gmail, entre com ele no Chrome.
-      </p>
+      {waiting && (
+        <p className="small">
+          Faça o login na aba do Google que abriu. Ela fecha sozinha ao terminar (fechar a aba cancela o login).
+        </p>
+      )}
+      <p className="small muted">Os documentos são criados na conta conectada. O Gmail informado já vem preenchido no login.</p>
       {error && <p className="error small">{error}</p>}
     </div>
   )

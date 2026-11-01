@@ -10,7 +10,7 @@ Extensão do Chrome que percorre as aulas de uma plataforma de estudo, transcrev
 - Chrome Extension Manifest V3, empacotada com Vite + CRXJS
 - Transcrição: Groq `whisper-large-v3-turbo` (gratuito) ou OpenAI `gpt-4o-mini-transcribe` (pago), configurável
 - Resumos: Gemini `gemini-flash-latest` (gratuito) ou Groq `gpt-oss-120b` (gratuito, aulas curtas), configurável
-- Google Drive API (conversão HTML → Google Docs) com OAuth via `chrome.identity`
+- Google Drive API (conversão HTML → Google Docs) com login OAuth numa aba do Chrome (qualquer Gmail)
 
 ## Arquitetura
 

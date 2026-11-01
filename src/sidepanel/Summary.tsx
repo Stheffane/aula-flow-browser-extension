@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Markdown from 'react-markdown'
 import { useStorage } from './useStorage'
 import { SUMMARY_PROVIDERS } from '../shared/summary'
+import { currentAccount, signIn } from '../shared/google'
 import type { LessonRef, Message } from '../shared/types'
 
 /** Material de estudo gerado pela IA a partir da transcrição. */
@@ -30,6 +31,14 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
   async function updateDoc() {
     if (courseDoc && !confirm('O documento do curso será regerado com todas as aulas. Edições feitas direto no Google Docs serão substituídas. Continuar?')) return
     setDoc({ status: 'loading' })
+    // O login precisa abrir pelo painel (aba do Google); o background só usa o acesso salvo.
+    if (!(await currentAccount())) {
+      try {
+        await signIn(true)
+      } catch (e) {
+        return setDoc({ status: 'error', error: e instanceof Error ? e.message : String(e) })
+      }
+    }
     const res = await chrome.runtime.sendMessage<Message, { ok: boolean; error?: string }>({
       type: 'UPDATE_COURSE_DOC',
       course,
@@ -43,7 +52,9 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const loading = summary?.status === 'loading'
+  // Segurança extra: "gerando" há mais de 4 min é considerado travado e libera o botão.
+  const stuck = summary?.status === 'loading' && Date.now() - summary.createdAt > 4 * 60_000
+  const loading = summary?.status === 'loading' && !stuck
 
   return (
     <section className="card stack">
@@ -59,6 +70,7 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
       {!hasKey && <p className="muted">Informe a chave do {provider.name} nas configurações para gerar o resumo.</p>}
       {loading && <p>Gerando o material com {provider.name}… isso leva uns segundos.</p>}
       {summary?.status === 'error' && <p className="error">Erro: {summary.error}</p>}
+      {stuck && <p className="error">A geração anterior não terminou. Gere de novo.</p>}
 
       {summary?.status === 'done' && summary.markdown && (
         <article className="markdown">

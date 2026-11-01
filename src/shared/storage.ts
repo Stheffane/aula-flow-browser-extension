@@ -12,6 +12,8 @@ export interface Settings {
   apiKeys: Record<KeyId, string>
   /** Velocidade do vídeo durante a captura. Acima de 1.5x a transcrição perde qualidade. */
   playbackRate: number
+  /** Gmail sugerido no login do Google (opcional). */
+  googleEmail: string
 }
 
 /** Tudo que a extensão guarda em chrome.storage.local. As chaves dos registros são as URLs das aulas. */
@@ -31,6 +33,7 @@ export const DEFAULTS: StorageShape = {
     summaryProvider: 'gemini',
     apiKeys: { groq: '', openai: '', gemini: '' },
     playbackRate: 1,
+    googleEmail: '',
   },
   job: null,
   transcripts: {},

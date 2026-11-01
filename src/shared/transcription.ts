@@ -34,7 +34,12 @@ export async function transcribe(audio: Blob, { provider, apiKey }: Transcriber,
   // O título da aula ajuda o modelo com termos técnicos.
   if (context) form.append('prompt', context)
 
-  const res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: form })
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+    signal: AbortSignal.timeout(2 * 60_000),
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     throw new Error(`${name}: ${body?.error?.message ?? `erro ${res.status}`}`)
