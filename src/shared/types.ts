@@ -22,6 +22,14 @@ export interface OutlineModule {
   items: OutlineItem[]
 }
 
+/** Pergunta de questionário lida da página. */
+export interface Question {
+  statement: string
+  options: string[]
+  /** Mais de uma alternativa pode ser marcada. */
+  multiple: boolean
+}
+
 export interface PageInfo {
   platform: string
   kind: PageKind
@@ -41,6 +49,8 @@ export interface PageInfo {
   module?: string
   /** Menu do curso: módulos e aulas (para processar um módulo inteiro). */
   outline?: OutlineModule[]
+  /** Pergunta visível na tela (questionários/avaliações). */
+  question?: Question
   videos: VideoSource[]
 }
 
@@ -55,6 +65,9 @@ export interface PageSnapshot {
   active: string[]
   navButtons: string[]
   courseMenu: string[]
+  /** Pergunta lida pelo leitor genérico + estrutura do bloco (para ajustar a leitura). */
+  question?: Question
+  questionTree?: string[]
 }
 
 export interface LessonRef {
@@ -103,14 +116,21 @@ export interface LessonMeta {
   order?: number
 }
 
-/** Processamento automático de um módulo inteiro. */
+/** Aula a processar: item do menu + módulo e posição dentro dele. */
+export interface RunItemInput extends OutlineItem {
+  module: string
+  order: number
+}
+
+/** Processamento automático de um módulo (ou do curso inteiro). */
 export interface Run {
   tabId: number
   course?: string
-  module: string
-  items: (OutlineItem & {
-    order: number
-    status: 'pending' | 'running' | 'done' | 'skipped' | 'error'
+  /** O que está sendo processado (ex.: "Módulo 04" ou "Curso inteiro"). */
+  label: string
+  items: (RunItemInput & {
+    /** transcribed = vídeo transcrito, material ainda não gerado (sai na fase 2, por módulo). */
+    status: 'pending' | 'running' | 'done' | 'skipped' | 'transcribed' | 'error'
     /** Chave da aula, quando já foi aberta. */
     key?: string
     error?: string
@@ -118,6 +138,13 @@ export interface Run {
   index: number
   status: 'running' | 'stopped' | 'done' | 'error'
   error?: string
+  /** 1) transcrever todas as aulas; 2) gerar os materiais por módulo. */
+  phase: 'transcribe' | 'summarize'
+  /** Módulo cujo material está sendo gerado agora (fase 2). */
+  summarizing?: string
+  updatedAt?: number
+  /** A extensão silenciou a aba e deve devolver o som no fim. */
+  muted?: boolean
 }
 
 /** Google Docs único de um curso. */
@@ -143,8 +170,9 @@ export type Message =
   | { type: 'CAPTURE_STOP' }
   | { type: 'SUMMARIZE'; lessonUrl: string }
   | { type: 'UPDATE_COURSE_DOC'; course: string }
-  | { type: 'RUN_START'; tabId: number; course?: string; module: OutlineModule; startId: string }
+  | { type: 'RUN_START'; tabId: number; course?: string; label: string; items: RunItemInput[] }
   | { type: 'RUN_STOP' }
+  | { type: 'EXPLAIN_QUESTION'; course?: string; question: Question }
   // background → página
   | { type: 'OPEN_LESSON'; id: string }
   // background → offscreen

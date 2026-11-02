@@ -13,6 +13,9 @@ function merge(frames: FrameReport[]): PageInfo {
   const top = frames.find((f) => f.isTop) ?? frames[0]
   const videos = frames.flatMap((f) => f.info.videos)
   const info = { ...top.info, videos }
+  // A avaliação pode estar num frame filho: usa a primeira pergunta encontrada.
+  info.question ??= frames.find((f) => f.info.question)?.info.question
+  if (info.question) info.kind = 'quiz'
   if (videos.length && info.kind !== 'quiz') info.kind = 'lesson'
   // O vídeo pode estar num frame filho: recalcula a chave com todos os vídeos.
   if (!info.lessonKey.includes('#video-')) info.lessonKey = lessonKey(new URL(info.url), videos)

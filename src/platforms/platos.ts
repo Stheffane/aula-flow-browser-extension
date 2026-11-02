@@ -1,6 +1,7 @@
 import type { PlatformAdapter } from './types'
 import type { OutlineModule, PageKind } from '../shared/types'
 import { findVideos, lessonKey } from './dom'
+import { readQuestion } from './question'
 
 /**
  * Plataforma Platos (LMS da faculdade).
@@ -124,7 +125,8 @@ export const platosAdapter: PlatformAdapter = {
     const currentItem = currentModule?.items.find((i) => i.current)
 
     let kind: PageKind = 'unknown'
-    if (isQuiz) kind = 'quiz'
+    const question = readQuestion(doc)
+    if (isQuiz || question) kind = 'quiz'
     else if (videos.length > 0) kind = 'lesson'
     else if (courseId && !isContent) kind = 'course'
 
@@ -135,10 +137,12 @@ export const platosAdapter: PlatformAdapter = {
       lessonKey: lessonKey(url, videos),
       title: currentItem?.label || doc.title,
       courseId,
-      course: courseName(doc),
+      // Sem o nome na página, usa o número da disciplina (da URL): nunca mistura matérias diferentes.
+      course: courseName(doc) ?? (courseId ? `Disciplina ${courseId}` : undefined),
       modules: moduleNames(doc),
       module: currentModule?.name,
       outline: menu,
+      question,
       videos,
     }
   },

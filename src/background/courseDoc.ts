@@ -116,11 +116,12 @@ const STYLE = `<style>
 
 /** Monta e envia o documento do curso. Cria na primeira vez; depois substitui o conteúdo. */
 export async function updateCourseDoc(course: string) {
-  const [transcripts, summaries, meta, docs] = await Promise.all([
+  const [transcripts, summaries, meta, docs, titles] = await Promise.all([
     getItem('transcripts'),
     getItem('summaries'),
     getItem('lessonMeta'),
     getItem('courseDocs'),
+    getItem('courseTitles'),
   ])
 
   const lessons: Lesson[] = Object.entries(transcripts)
@@ -137,8 +138,13 @@ export async function updateCourseDoc(course: string) {
   const folderId = await ensureFolder(course, rootId)
   const current = docs[course]
   const fileId = current && (await docExists(current.id)) ? current.id : undefined
-  const doc = await upsertDocFromHtml({ title: `${course} · Material de estudo`, html, folderId, fileId })
+  // Nome escolhido no painel, ou o automático. Se o doc já existe, ele é renomeado.
+  const doc = await upsertDocFromHtml({ title: docTitle(course, titles), html, folderId, fileId })
 
   await setRecord('courseDocs', course, { id: doc.id, url: doc.webViewLink, updatedAt: Date.now() })
   return doc
 }
+
+/** Nome do documento de um curso/matéria: o escolhido no painel ou "<curso> · Material de estudo". */
+export const docTitle = (course: string, titles: Record<string, string>) =>
+  titles[course]?.trim() || `${course} · Material de estudo`

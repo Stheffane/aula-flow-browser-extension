@@ -3,6 +3,7 @@ import Markdown from 'react-markdown'
 import { useStorage } from './useStorage'
 import { SUMMARY_PROVIDERS } from '../shared/summary'
 import { currentAccount, signIn } from '../shared/google'
+import { CourseDocName } from './CourseDocName'
 import type { LessonRef, Message } from '../shared/types'
 
 /** Material de estudo gerado pela IA a partir da transcrição. */
@@ -19,7 +20,7 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
   const transcript = transcripts[lesson.url]
   const summary = summaries[lesson.url]
   const provider = SUMMARY_PROVIDERS[settings.summaryProvider]
-  const hasKey = !!settings.apiKeys[settings.summaryProvider]
+  const hasKey = !!settings.apiKeys[SUMMARY_PROVIDERS[settings.summaryProvider].key]
 
   if (!transcript) return null
 
@@ -80,7 +81,7 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
 
       {summary?.status === 'done' && (
         <div className="docs">
-          <strong className="small">Documento do curso</strong>
+          <strong className="small">Documento da matéria: {course}</strong>
           {courseDoc ? (
             <>
               <a className="doc-link" href={courseDoc.url} target="_blank" rel="noreferrer">
@@ -93,6 +94,7 @@ export function Summary({ lesson }: { lesson: LessonRef }) {
           ) : (
             <p className="small muted">Um único Google Docs com todas as aulas de “{course}”, organizado por módulo.</p>
           )}
+          <CourseDocName course={course} />
           <button className={courseDoc ? 'ghost' : ''} onClick={updateDoc} disabled={doc.status === 'loading'}>
             {doc.status === 'loading' ? 'Gerando documento…' : courseDoc ? 'Atualizar agora' : 'Criar documento do curso'}
           </button>

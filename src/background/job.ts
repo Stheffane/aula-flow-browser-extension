@@ -1,5 +1,6 @@
 import { getItem, setItem, setRecord } from '../shared/storage'
 import { transcribe, type Transcriber } from '../shared/transcription'
+import { withRetry } from '../shared/retry'
 import type { Job, JobStatus, LessonRef } from '../shared/types'
 
 /**
@@ -57,7 +58,7 @@ export function addSegment(dataUrl: string) {
     const audio = await (await fetch(dataUrl)).blob()
     if (audio.size < 2_000) return // trecho vazio
     const { transcriber } = (await chrome.storage.session.get('transcriber')) as { transcriber: Transcriber }
-    const text = await transcribe(audio, transcriber, job.lesson.title)
+    const text = await withRetry(() => transcribe(audio, transcriber, job.lesson.title))
     return { ...job, segmentsDone: job.segmentsDone + 1, preview: [job.preview, text].filter(Boolean).join('\n\n') }
   })
 }

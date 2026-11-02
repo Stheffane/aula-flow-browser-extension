@@ -2,8 +2,8 @@ import type { CourseDoc, Job, LessonMeta, Run, Summary, Transcript } from './typ
 import type { ProviderId } from './transcription'
 import type { SummaryProviderId } from './summary'
 
-/** Serviços que precisam de chave. A do Groq serve para transcrição e resumo. */
-export type KeyId = ProviderId | SummaryProviderId
+/** Serviços que precisam de chave. A do Groq serve para transcrição e resumo; a do Gemini, para Flash e Flash-Lite. */
+export type KeyId = ProviderId | 'gemini'
 
 export interface Settings {
   transcriptionProvider: ProviderId
@@ -14,6 +14,8 @@ export interface Settings {
   playbackRate: number
   /** Gmail sugerido no login do Google (opcional). */
   googleEmail: string
+  /** Silencia a aba durante o processamento de módulo/curso (a gravação não é afetada). */
+  muteTabWhileProcessing: boolean
 }
 
 /** Tudo que a extensão guarda em chrome.storage.local. As chaves dos registros são as URLs das aulas. */
@@ -27,6 +29,8 @@ export interface StorageShape {
   lessonMeta: Record<string, LessonMeta>
   /** Um Google Docs por curso (chave: nome do curso). */
   courseDocs: Record<string, CourseDoc>
+  /** Nome escolhido para o documento de cada curso/matéria (vazio = nome automático). */
+  courseTitles: Record<string, string>
 }
 
 export const DEFAULTS: StorageShape = {
@@ -36,6 +40,7 @@ export const DEFAULTS: StorageShape = {
     apiKeys: { groq: '', openai: '', gemini: '' },
     playbackRate: 1,
     googleEmail: '',
+    muteTabWhileProcessing: false,
   },
   job: null,
   run: null,
@@ -43,6 +48,7 @@ export const DEFAULTS: StorageShape = {
   summaries: {},
   lessonMeta: {},
   courseDocs: {},
+  courseTitles: {},
 }
 
 /** Completa com os valores padrão (útil quando novos campos de configuração são adicionados). */
@@ -65,7 +71,7 @@ export function setItem<K extends keyof StorageShape>(key: K, value: StorageShap
 }
 
 /** Atualiza um item de um registro (ex.: o resumo de uma aula) sem sobrescrever os outros. */
-export async function setRecord<K extends 'transcripts' | 'summaries' | 'lessonMeta' | 'courseDocs'>(key: K, id: string, value: StorageShape[K][string]) {
+export async function setRecord<K extends 'transcripts' | 'summaries' | 'lessonMeta' | 'courseDocs' | 'courseTitles'>(key: K, id: string, value: StorageShape[K][string]) {
   const all = await getItem(key)
   await setItem(key, { ...all, [id]: value } as StorageShape[K])
 }

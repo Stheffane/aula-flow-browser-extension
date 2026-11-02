@@ -7,6 +7,7 @@ import { Transcription } from './Transcription'
 import { Summary } from './Summary'
 import { ModulePicker } from './ModulePicker'
 import { ModuleRunner } from './ModuleRunner'
+import { QuizTutor } from './QuizTutor'
 
 const KIND_LABEL: Record<PageKind, string> = {
   lesson: 'Aula com vídeo',
@@ -85,6 +86,8 @@ export function App() {
           <button className="secondary" onClick={inspect}>{copied ? 'Copiado!' : 'Inspecionar página (copiar estrutura)'}</button>
         </>
       )}
+
+      {state.status === 'ready' && state.info.kind === 'quiz' && <QuizTutor info={state.info} />}
 
       {/* Também aparece fora da aula, para acompanhar um módulo em andamento */}
       <ModuleRunner info={state.status === 'ready' ? state.info : undefined} />

@@ -1,4 +1,5 @@
 import type { PageSnapshot, VideoSource } from '../shared/types'
+import { readQuestion } from './question'
 
 const text = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim()
 
@@ -74,6 +75,15 @@ function courseMenu(doc: Document): string[] {
   return tree(box)
 }
 
+/** Estrutura do bloco da pergunta (em volta das alternativas), para ajustar a leitura de questionários. */
+function questionTree(doc: Document): string[] {
+  const first = doc.querySelector('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"]')
+  if (!first) return ['(nenhuma alternativa encontrada nesta página/frame)']
+  let box: Element = first
+  for (let i = 0; i < 6 && box.parentElement; i++) box = box.parentElement
+  return tree(box, 150)
+}
+
 /** Botões de navegação entre aulas, com o HTML (para saber como clicar neles). */
 function navButtons(doc: Document): string[] {
   return [...doc.querySelectorAll('button, a')]
@@ -100,5 +110,7 @@ export function snapshot(doc: Document): PageSnapshot {
       .slice(0, 60),
     navButtons: navButtons(doc),
     courseMenu: courseMenu(doc),
+    question: readQuestion(doc),
+    questionTree: questionTree(doc),
   }
 }

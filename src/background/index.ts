@@ -3,6 +3,7 @@ import type { Message } from '../shared/types'
 import { addSegment, failJob, finishJob, markTranscribing, startJob } from './job'
 import { autoSummarize, autoUpdateCourseDoc, summarizeLesson } from './summarize'
 import { updateCourseDoc } from './courseDoc'
+import { explainQuestion } from './tutor'
 import { checkRun, onLessonFinished, startRun, stopRun, WATCHDOG } from './run'
 import { getItem } from '../shared/storage'
 
@@ -77,9 +78,14 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         .finally(onLessonFinished) // se estiver processando um módulo, segue para a próxima aula
       break
     case 'RUN_START':
-      return reply(startRun(msg.tabId, msg.course, msg.module, msg.startId))
+      return reply(startRun(msg.tabId, msg.course, msg.label, msg.items))
     case 'RUN_STOP':
       return reply(stopRun())
+    case 'EXPLAIN_QUESTION':
+      explainQuestion(msg.question, msg.course)
+        .then((markdown) => sendResponse({ ok: true, markdown }))
+        .catch((e) => sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) }))
+      return true
     case 'SUMMARIZE':
       return reply(
         summarizeLesson(msg.lessonUrl).then(async () => {

@@ -100,3 +100,17 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 .run-list li.running { font-weight: 600; color: var(--accent); }
 .run-list li.done, .run-list li.skipped { color: var(--muted); }
 .run-list li.error span { color: #c53030; }
+.run-list-box { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.run-module { font-weight: 600; margin: 0 0 2px; }
+button.link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; font-size: 12px; }
+.question { font-size: 13px; padding: 10px; border-radius: 8px; background: var(--bg); }
+.question p { margin: 0 0 6px; }
+.question ol { margin: 0; padding-left: 20px; }
+.question li { margin: 3px 0; }
+.warn { color: var(--warn); margin: 0; }
+.last-run { padding: 8px; border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 4px; }
+.run-list li.transcribed { color: var(--warn); }
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+label.check input { width: auto; }
+.phase { padding: 6px 8px; border-radius: 6px; background: var(--bg); margin: 0; }
+button.danger { background: transparent; color: #c53030; border: 1px solid #c53030; }

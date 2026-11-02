@@ -1,14 +1,19 @@
+import { cleanTranscript } from './clean'
+import { isQuotaError, withRetry } from './retry'
+
 /**
  * Geração do material de estudo a partir da transcrição.
  * O resultado é Markdown: fácil de mostrar no painel e de converter para Google Docs depois.
  */
 export const SUMMARY_PROVIDERS = {
-  gemini: { name: 'Gemini (gratuito)', model: 'gemini-flash-latest', keyUrl: 'https://aistudio.google.com/apikey' },
-  groq: { name: 'Groq (gratuito, aulas curtas)', model: 'openai/gpt-oss-120b', keyUrl: 'https://console.groq.com/keys' },
+  gemini: { name: 'Gemini Flash (gratuito)', model: 'gemini-flash-latest', key: 'gemini', batch: true },
+  'gemini-lite': { name: 'Gemini Flash-Lite (gratuito)', model: 'gemini-flash-lite-latest', key: 'gemini', batch: true },
+  // Groq tem limite baixo de texto por minuto: só aula a aula, nunca o módulo inteiro de uma vez.
+  groq: { name: 'Groq gpt-oss (gratuito, aulas curtas)', model: 'openai/gpt-oss-120b', key: 'groq', batch: false },
 } as const
 
 /** Se a IA não responder nesse tempo, o resumo vira erro (em vez de ficar "gerando" para sempre). */
-const TIMEOUT_MS = 3 * 60_000
+const TIMEOUT_MS = 6 * 60_000
 
 export type SummaryProviderId = keyof typeof SUMMARY_PROVIDERS
 
@@ -71,15 +76,15 @@ async function errorMessage(res: Response, name: string) {
   return `${name}: ${body?.error?.message ?? `erro ${res.status}`}`
 }
 
-async function withGemini(title: string, transcript: string, apiKey: string, context?: string) {
-  const { model, name } = SUMMARY_PROVIDERS.gemini
+async function withGemini(id: 'gemini' | 'gemini-lite', system: string, user: string, apiKey: string) {
+  const { model, name } = SUMMARY_PROVIDERS[id]
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt(title, transcript, context) }] }],
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: user }] }],
       generationConfig: { temperature: 0.3 },
     }),
   })
@@ -90,7 +95,7 @@ async function withGemini(title: string, transcript: string, apiKey: string, con
   return text
 }
 
-async function withGroq(title: string, transcript: string, apiKey: string, context?: string) {
+async function withGroq(system: string, user: string, apiKey: string) {
   const { model, name } = SUMMARY_PROVIDERS.groq
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -100,8 +105,8 @@ async function withGroq(title: string, transcript: string, apiKey: string, conte
       model,
       temperature: 0.3,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt(title, transcript, context) },
+        { role: 'system', content: system },
+        { role: 'user', content: user },
       ],
     }),
   })
@@ -110,8 +115,116 @@ async function withGroq(title: string, transcript: string, apiKey: string, conte
   return data.choices[0].message.content as string
 }
 
-export function summarize(provider: SummaryProviderId, title: string, transcript: string, apiKey: string, context?: string) {
-  return provider === 'gemini'
-    ? withGemini(title, transcript, apiKey, context)
-    : withGroq(title, transcript, apiKey, context)
+/** Último sinal de vida de uma chamada de IA (o vigia do processamento usa para saber se ela ainda está rodando). */
+export const AI_HEARTBEAT = 'aiHeartbeat'
+
+/**
+ * O Chrome encerra o service worker quando a resposta de um fetch demora mais de 30 s, e o material
+ * de um módulo leva minutos. Chamar uma API da extensão a cada 20 s reinicia esse prazo.
+ */
+async function keepAlive<T>(work: () => Promise<T>): Promise<T> {
+  const beat = () => chrome.storage.session.set({ [AI_HEARTBEAT]: Date.now() }).catch(() => undefined)
+  beat()
+  const timer = setInterval(beat, 20_000)
+  try {
+    return await work()
+  } finally {
+    clearInterval(timer)
+  }
+}
+
+/** Chamada genérica ao provedor de IA escolhido (usada pelo resumo e pelo tutor). */
+export function complete(provider: SummaryProviderId, system: string, user: string, apiKey: string) {
+  return keepAlive(() => (provider === 'groq' ? withGroq(system, user, apiKey) : withGemini(provider, system, user, apiKey)))
+}
+
+type ApiKeys = Record<'groq' | 'openai' | 'gemini', string>
+
+/** Ordem de tentativa: o provedor escolhido nas configurações e depois os outros gratuitos. */
+const providerChain = (primary: SummaryProviderId): SummaryProviderId[] => [
+  ...new Set<SummaryProviderId>([primary, 'gemini', 'gemini-lite', 'groq']),
+]
+
+/** Provedores que responderam "limite diário atingido": pulados por 1 h (evita chamadas perdidas). */
+const exhausted = new Map<SummaryProviderId, number>()
+const EXHAUSTED_MS = 60 * 60_000
+
+/**
+ * Chama a IA com reserva automática: se um provedor falhar (limite diário, instabilidade),
+ * tenta o próximo da lista. Com `batch`, só usa provedores que aguentam textos grandes.
+ */
+export async function completeWithFallback(
+  system: string,
+  user: string,
+  opts: { primary: SummaryProviderId; apiKeys: ApiKeys; batch?: boolean },
+) {
+  const errors: string[] = []
+  for (const id of providerChain(opts.primary)) {
+    const provider = SUMMARY_PROVIDERS[id]
+    const apiKey = opts.apiKeys[provider.key]
+    if (!apiKey || (opts.batch && !provider.batch)) continue
+    if (Date.now() - (exhausted.get(id) ?? 0) < EXHAUSTED_MS) {
+      errors.push(`${provider.name}: limite diário atingido (pulado)`)
+      continue
+    }
+    try {
+      const text = await withRetry(() => complete(id, system, user, apiKey))
+      return { text, model: provider.model }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (isQuotaError(msg)) exhausted.set(id, Date.now())
+      errors.push(msg)
+    }
+  }
+  throw new Error(errors.length ? errors.join(' | ') : 'Nenhum provedor de IA com chave configurada.')
+}
+
+/** Material de uma aula (com reserva automática entre provedores). */
+export function summarize(
+  title: string,
+  transcript: string,
+  opts: { primary: SummaryProviderId; apiKeys: ApiKeys },
+  context?: string,
+) {
+  return completeWithFallback(SYSTEM_PROMPT, userPrompt(title, cleanTranscript(transcript), context), opts)
+}
+
+/** Separador entre as aulas na resposta do material por módulo. */
+const MARK = (n: number) => `===AULA ${n}===`
+
+/**
+ * Material de várias aulas do mesmo módulo numa única chamada (economiza requisições da cota diária).
+ * Retorna o Markdown de cada aula, na mesma ordem (undefined se a IA pulou alguma).
+ */
+export async function summarizeBatch(
+  lessons: { title: string; transcript: string }[],
+  opts: { primary: SummaryProviderId; apiKeys: ApiKeys },
+  context?: string,
+) {
+  // Uma aula só: não precisa do formato em lote.
+  if (lessons.length === 1) {
+    const { text, model } = await summarize(lessons[0].title, lessons[0].transcript, opts, context)
+    return { markdowns: [text], model }
+  }
+
+  const user = [
+    `Você vai receber ${lessons.length} aulas do mesmo módulo, em ordem. Gere o material de CADA aula separadamente, seguindo exatamente a estrutura pedida. Antes do material de cada aula, escreva uma linha contendo apenas ${MARK(1)}, ${MARK(2)} e assim por diante. Como são aulas do mesmo módulo, não repita explicações: se um conceito já foi explicado numa aula anterior, faça referência a ela.`,
+    context &&
+      `Aulas de módulos anteriores e os conceitos já explicados nelas (não repita essas explicações, só referencie):\n${context}`,
+    ...lessons.map(
+      (l, i) => `${MARK(i + 1)}\nTítulo da aula: ${l.title}\nTranscrição:\n"""\n${cleanTranscript(l.transcript)}\n"""`,
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
+  const { text, model } = await completeWithFallback(SYSTEM_PROMPT, user, { ...opts, batch: true })
+  const parts = text.split(/^\s*===\s*AULA\s+(\d+)\s*===\s*$/m)
+  const result: (string | undefined)[] = new Array(lessons.length).fill(undefined)
+  for (let i = 1; i < parts.length; i += 2) {
+    const n = Number(parts[i]) - 1
+    const md = parts[i + 1]?.trim()
+    if (n >= 0 && n < lessons.length && md) result[n] = md
+  }
+  return { markdowns: result, model }
 }

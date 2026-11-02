@@ -3,18 +3,19 @@ import { PROVIDERS, type ProviderId } from '../shared/transcription'
 import { SUMMARY_PROVIDERS, type SummaryProviderId } from '../shared/summary'
 import type { KeyId } from '../shared/storage'
 import { GoogleAccount } from './GoogleAccount'
+import { DataSettings } from './DataSettings'
 
 const RATES = [1, 1.25, 1.5, 2]
 const KEY_LABEL: Record<KeyId, { name: string; url: string }> = {
   groq: { name: 'Groq', url: PROVIDERS.groq.keyUrl },
   openai: { name: 'OpenAI', url: PROVIDERS.openai.keyUrl },
-  gemini: { name: 'Gemini (Google AI Studio)', url: SUMMARY_PROVIDERS.gemini.keyUrl },
+  gemini: { name: 'Gemini (Google AI Studio)', url: 'https://aistudio.google.com/apikey' },
 }
 
 export function Settings() {
   const [settings, setSettings] = useStorage('settings')
   // Só pede as chaves dos serviços escolhidos (a do Groq serve para os dois).
-  const neededKeys = [...new Set<KeyId>([settings.transcriptionProvider, settings.summaryProvider])]
+  const neededKeys = [...new Set<KeyId>([settings.transcriptionProvider, SUMMARY_PROVIDERS[settings.summaryProvider].key])]
   const missingKey = neededKeys.some((k) => !settings.apiKeys[k])
 
   return (
@@ -34,7 +35,7 @@ export function Settings() {
         </select>
       </label>
       <label>
-        Resumo
+        Resumo (os outros provedores gratuitos entram como reserva automática)
         <select
           value={settings.summaryProvider}
           onChange={(e) => setSettings({ ...settings, summaryProvider: e.target.value as SummaryProviderId })}
@@ -73,9 +74,19 @@ export function Settings() {
           ))}
         </select>
       </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={settings.muteTabWhileProcessing}
+          onChange={(e) => setSettings({ ...settings, muteTabWhileProcessing: e.target.checked })}
+        />
+        Silenciar a aba ao processar módulo/curso (não afeta a gravação)
+      </label>
       <p className="muted small">As chaves ficam salvas só neste navegador.</p>
       <hr />
       <GoogleAccount />
+      <hr />
+      <DataSettings />
     </details>
   )
 }

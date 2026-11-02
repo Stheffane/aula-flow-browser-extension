@@ -96,16 +96,45 @@ Cada curso tem **um único Google Docs**, regerado a partir dos resumos salvos s
 - O documento fica em `Aula Flow / <nome do curso>` no Drive. O escopo é `drive.file`: a extensão só acessa os arquivos que ela mesma criou.
 - **Atenção:** como o documento é regerado, edições feitas direto no Google Docs são substituídas na próxima atualização.
 
-## Processar um módulo inteiro
+## Processar um módulo (ou o curso inteiro)
 
-Na aula aberta, o painel mostra **Processar <módulo>** (`src/background/run.ts`):
+Na aula aberta, o painel oferece **Processar <módulo>**, **a partir desta aula** e **Processar curso inteiro** (todos os módulos; Podcast e Avaliação ficam de fora) (`src/background/run.ts`):
 
-1. A extensão lê o menu "Conteúdo do Curso" (módulos → aulas) pelo adaptador da plataforma.
-2. Para cada aula do módulo: abre pelo menu, espera o vídeo trocar, grava e transcreve.
-3. Ao terminar a transcrição: gera o material de estudo (com a lista do que as **aulas anteriores** já explicaram, para não repetir) e atualiza o documento do curso.
-4. Segue para a próxima aula. Aulas já processadas são puladas, então dá para parar e retomar.
+O processamento anda **módulo a módulo**:
+
+1. **Transcrever:** para cada aula do módulo, navega com "Próxima aula"/"Aula Anterior" (o menu é reserva), espera o vídeo trocar, grava e transcreve (só usa o Groq). Aulas já transcritas não são reassistidas; aulas com material pronto são puladas.
+2. **Material do módulo:** ao terminar o módulo, gera o material das aulas dele com o mínimo de chamadas de IA (marcadores `===AULA n===` separam as aulas na resposta), passando os conceitos dos módulos anteriores para não repetir explicações. Em seguida cria/atualiza o documento da matéria e segue para o próximo módulo.
+
+Como a resposta da IA para um módulo leva minutos e o Chrome encerra o service worker quando um `fetch` passa de 30 s sem atividade, as chamadas de IA mantêm o worker ativo (uma chamada à API da extensão a cada 20 s). Se mesmo assim ele cair, o vigia percebe e gera o material de novo.
+
+Dá para parar e retomar a qualquer momento.
 
 O estado fica em `chrome.storage` e o avanço é guiado por eventos, então o painel pode ser fechado durante o processamento.
+
+## Tutor de questionários
+
+Em páginas de questionário/avaliação, o painel mostra o **Tutor da questão** (`src/shared/tutor.ts`):
+
+- Lê a pergunta e as alternativas da tela com um leitor genérico (radio/checkbox, nativos ou com `role`) em `src/platforms/question.ts`.
+- **Explicar esta questão** envia a pergunta + o material de estudo do curso para a IA, que responde com: o que está sendo perguntado, conceitos envolvidos, onde isso aparece no curso e perguntas-guia.
+- O tutor **não indica a alternativa correta**: o objetivo é entender a questão; a resposta é do aluno.
+
+## Economia de cota (tudo gratuito)
+
+- **Material por módulo:** ~1 chamada de IA por módulo em vez de 1 por aula (o curso de 28 aulas cai para ~10 chamadas).
+- **Reserva automática** (`completeWithFallback` em `src/shared/summary.ts`): Gemini Flash → Gemini Flash-Lite → Groq gpt-oss (este só aula a aula). Um provedor que responde "limite diário" é pulado por 1 h.
+- **Limpeza local** (`src/shared/clean.ts`): remove vícios de fala soltos ("Perfeito.", "Beleza?", "né?") e palavras repetidas antes de enviar para a IA (~15% menos texto). A transcrição original continua salva.
+- **Tutor enxuto:** envia só as 4 aulas mais relacionadas à pergunta (por palavras em comum); das demais, só os títulos.
+- O documento do Google Docs é montado sem IA.
+
+## Recuperação de erros
+
+- **Falhas temporárias** (limite de uso, instabilidade, tempo esgotado) no Groq/Gemini são repetidas automaticamente, com espera crescente (`src/shared/retry.ts`).
+- **Vigia** (`chrome.alarms`, a cada 30 s): se o service worker do Chrome for encerrado no meio de uma etapa, retoma do ponto salvo (transcrição parada, resumo travado, vídeo que terminou sem avisar).
+- Aulas com erro ganham **Tentar de novo**; no fim, **Refazer aulas com erro**.
+- Ao recarregar a extensão ou reabrir o navegador, o que estava pela metade é marcado como interrompido, e os botões voltam.
+- **Notificação do sistema** no fim do processamento (clicar abre o documento do curso).
+- **Limpar dados** (Configurações): apaga transcrições/materiais/progresso mantendo chaves e login, ou apaga tudo.
 
 **Identificação das aulas:** a Platos é uma SPA e a URL não muda entre aulas; cada aula é identificada pela URL + ID do vídeo (`lessonKey`).
 
@@ -116,4 +145,4 @@ O estado fica em `chrome.storage` e o avanço é guiado por eventos, então o pa
 - [x] 3. Gerar resumo estruturado com IA
 - [x] 4. Criar automaticamente um Google Docs
 - [x] 5. Processar um módulo inteiro do curso
-- [ ] 6. Progresso, recuperação de erros e configurações
+- [x] 6. Progresso, recuperação de erros e configurações
